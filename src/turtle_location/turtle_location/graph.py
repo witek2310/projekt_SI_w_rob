@@ -16,23 +16,34 @@ import rclpy
 from rclpy.node import Node
 
 from std_msgs.msg import String
-
+from sensor_msgs.msg import Imu
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import LaserScan
 
 class GraphOptimazer(Node):
 
     def __init__(self):
-        super().__init__('minimal_publisher')
-        self.publisher_ = self.create_publisher(String, 'topic', 10)
-        timer_period = 0.5  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
-        self.i = 0
+        super().__init__('graph_optimisation')
 
-    def timer_callback(self):
-        msg = String()
-        msg.data = 'Hello World: %d' % self.i
-        self.publisher_.publish(msg)
-        self.get_logger().info('Publishing: "%s"' % msg.data)
-        self.i += 1
+        self.sub_imu = self.create_subscription(Imu,'imu',self.imu_callback,10); self.sub_imu  # prevent unused variable warning
+        self.imu = Imu()
+
+        self.sub_odom = self.create_subscription(Odometry,'odom',self.odom_callback,10); self.sub_odom # prevent unused variable warning
+        self.odom = Odometry()
+
+        self.sub_scan = self.create_subscription(LaserScan,'scan',self.scan_callback,10); self.sub_scan # prevent unused variable warning
+        self.scan = LaserScan()
+
+    def imu_callback(self, msg:Imu):
+        self.imu = msg
+        #self.get_logger().info(f'Imu: {self.imu.orientation}')
+    def odom_callback(self, msg:Odometry):
+        self.odom = msg
+        #self.get_logger().info(f'Odom: {self.odom._pose}')
+    def scan_callback(self, msg:LaserScan):
+        self.scan = msg
+        self.get_logger().info(f'Scan: {self.scan.ranges}')
+    
 
 
 def main(args=None):
