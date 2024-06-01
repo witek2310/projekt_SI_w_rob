@@ -20,6 +20,11 @@ from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 
+from pgmpy.models import MarkovModel
+from pgmpy.factors.discrete import DiscreteFactor
+from pgmpy.inference import Mplp
+
+
 class GraphOptimazer(Node):
 
     def __init__(self):
@@ -34,6 +39,11 @@ class GraphOptimazer(Node):
         self.sub_scan = self.create_subscription(LaserScan,'scan',self.scan_callback,10); self.sub_scan # prevent unused variable warning
         self.scan = LaserScan()
 
+        self.graph = MarkovModel()
+        self.graph
+        timer_period = 1
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+
     def imu_callback(self, msg:Imu):
         self.imu = msg
         #self.get_logger().info(f'Imu: {self.imu.orientation}')
@@ -43,6 +53,11 @@ class GraphOptimazer(Node):
     def scan_callback(self, msg:LaserScan):
         self.scan = msg
         self.get_logger().info(f'Scan: {self.scan.ranges}')
+
+    def timer_callback(self):
+        pass
+
+
     
 
 
