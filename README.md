@@ -8,6 +8,7 @@
 - export TURTLEBOT3_MODEL=burger
 - source /opt/ros/humble/setup.bash
 - source install/setup.bash
+- source /usr/share/gazebo/setup.bash
 - gazebo maps/super.world
 - ros2 run turtlebot3_teleop teleop_keyboard
 
