@@ -58,4 +58,15 @@ install(TARGETS
   graph_location
   DESTINATION lib/${PROJECT_NAME})
 target_link_libraries(graph_location gtsam)
+
+#install launch files
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}/
+)
+
+# Install maps
+install(DIRECTORY maps/
+  DESTINATION share/${PROJECT_NAME}/maps
+  FILES_MATCHING PATTERN "*")
 ament_package()
