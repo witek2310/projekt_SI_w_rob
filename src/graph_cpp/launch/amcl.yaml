@@ -15,7 +15,7 @@ amcl:
     beam_skip_threshold: 0.3
     beam_skip_error_threshold: 0.9
     laser_model_type: "likelihood_field"
-    robot_model_type: "differential"
+    robot_model_type: "DifferentialMotionModel"
     update_min_d: 0.2
     update_min_a: 0.2
     resample_interval: 1
