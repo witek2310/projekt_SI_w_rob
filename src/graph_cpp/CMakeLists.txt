@@ -9,7 +9,8 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
-
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 
 if(BUILD_TESTING)
@@ -50,7 +51,7 @@ set(CONVENIENCE_LIB_NAME graph_location)
 
 add_executable(graph_location src/graph_location.cpp)
 target_link_libraries(graph_location ${GTSAM_LIBRARIES})
-ament_target_dependencies(graph_location rclcpp std_msgs)
+ament_target_dependencies(graph_location rclcpp std_msgs nav_msgs sensor_msgs)
 
 
 

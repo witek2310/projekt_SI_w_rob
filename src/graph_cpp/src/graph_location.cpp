@@ -19,9 +19,10 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "sensor_msgs/msg/imu.hpp"
+#include "sensor_msgs/msg/laser_scan.hpp"
 
-
-using namespace std::chrono_literals;
 
 /* This example creates a subclass of Node and uses std::bind() to register a
  * member function as a callback from the timer. */
@@ -30,24 +31,35 @@ class GraphLocation : public rclcpp::Node
 {
 public:
   GraphLocation()
-  : Node("graph_location"), count_(0)
+  : Node("graph_location")
   {
-    publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
-    timer_ = this->create_wall_timer(
-      500ms, std::bind(&GraphLocation::timer_callback, this));
+    odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>("odom", 10, std::bind(&GraphLocation::odom_callback, this, std::placeholders::_1));
+    imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>("imu", 10, std::bind(&GraphLocation::imu_callback, this, std::placeholders::_1));
+    laser_sub_= this->create_subscription<sensor_msgs::msg::LaserScan>("laser", 10, std::bind(&GraphLocation::laser_callback, this, std::placeholders::_1));
   }
 
 private:
-  void timer_callback()
-  {
-    auto message = std_msgs::msg::String();
-    message.data = "Hello, world! " + std::to_string(count_++);
-    RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
-    publisher_->publish(message);
+  void odom_callback(nav_msgs::msg::Odometry::SharedPtr msg){
+    RCLCPP_INFO(this->get_logger(), "I heard: xd'");
+    this->odom_msg = *msg;
+    this->odom_recived = true;
   }
-  rclcpp::TimerBase::SharedPtr timer_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
-  size_t count_;
+  void imu_callback(sensor_msgs::msg::Imu::SharedPtr msg){
+    this->imu_msg = *msg;
+    this->imu_recived = true;
+  }
+  void laser_callback(sensor_msgs::msg::LaserScan::SharedPtr msg){
+    this->laser_msg = *msg;
+    this->laser_recived = true;
+  }
+
+  bool  odom_recived, imu_recived, laser_recived;
+  sensor_msgs::msg::Imu imu_msg;
+  sensor_msgs::msg::LaserScan laser_msg;
+  nav_msgs::msg::Odometry odom_msg;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
+  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_sub_;
 };
 
 
