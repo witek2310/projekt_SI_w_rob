@@ -28,6 +28,11 @@ def generate_launch_description():
                         {'use_sim_time': True}]
         )
 
+    graph = Node(            
+            package='graph_cpp',
+            executable='graph_location',
+            name='graph',
+            output='screen')
     ld = LaunchDescription()
 
     # Add the commands to the launch description
@@ -35,5 +40,6 @@ def generate_launch_description():
 
     ld.add_action(amcl_node)
     ld.add_action(nav2_lifecycle)
+    ld.add_action(graph)
 
     return ld
