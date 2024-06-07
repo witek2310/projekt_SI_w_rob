@@ -9,7 +9,11 @@
 - source /opt/ros/humble/setup.bash
 - source install/setup.bash
 - source /usr/share/gazebo/setup.bash
-- gazebo maps/super.world
+- gazebo maps/super.world  
+
+- ros2 launch graph_cpp map_launch.py  
+- ros2 launch graph_cpp do_the_graphs.py
+
 - ros2 run turtlebot3_teleop teleop_keyboard
 
 
