@@ -51,12 +51,15 @@ public:
 	GraphLocation()
 		: Node("graph_location")
 	{
+        // subscribers declaration
 		odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>("odom", 10, std::bind(&GraphLocation::odom_callback, this, std::placeholders::_1));
 		imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>("imu", 10, std::bind(&GraphLocation::imu_callback, this, std::placeholders::_1));
 		laser_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>("laser", 10, std::bind(&GraphLocation::laser_callback, this, std::placeholders::_1));
 		amcl_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>("amcl_pose", 10, std::bind(&GraphLocation::amcl_callback, this, std::placeholders::_1));
 
-		publisher_ = this->create_publisher<geometry_msgs::msg::PoseWithCovariance>("/graph_pose", 10);
+        // publisher declaration
+        // auto qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable().transient_local();
+		publisher_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/graph_pose", 10);//qos);
 
 		// initialize graph
 		graph_ = new NonlinearFactorGraph();
@@ -117,7 +120,7 @@ public:
 
 private:
 	// variables for publisher
-	rclcpp::Publisher<geometry_msgs::msg::PoseWithCovariance>::SharedPtr publisher_;
+	rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr publisher_;
 
 	// basic operation, graph
 	int iteration_;
@@ -128,6 +131,7 @@ private:
 	double prev_imu_time_;
 	Pose3 prev_amcl_; 
 	NavState prev_state_;
+
 	// variables for ros2 messages
 	bool odom_recived_, imu_recived_, laser_recived_;
 	sensor_msgs::msg::Imu imu_msg_;
@@ -203,49 +207,96 @@ private:
 		//initial valuse are amcls' values
 		this->initial_values_.insert(X(iteration_ + 1), pose_amcl);
 
-		//adding the factor between X_n and X_n+1 based on amcl pomiar 
+		//adding the factor between X_n and X_n+1 based on amcl measurements 
+        // size_t covariance_length = sizeof(msg->pose.covariance);
+        // RCLCPP_INFO(this->get_logger(), "Length of covariance array: %zu", covariance_length);
+
 		auto amcl_noise = noiseModel::Diagonal::Sigmas(Vector6(msg->pose.covariance[0], msg->pose.covariance[7], msg->pose.covariance[14], msg->pose.covariance[21], msg->pose.covariance[28], msg->pose.covariance[35]));
-		auto pose_amcl_change = this->prev_amcl_.between(pose_amcl);
+		auto bias_noise_model = noiseModel::Isotropic::Sigma(6, 1e-3);
+        auto pose_amcl_change = this->prev_amcl_.between(pose_amcl);
 		this->graph_->emplace_shared<BetweenFactor<Pose3>>(X(iteration_), X(iteration_ + 1), pose_amcl_change, amcl_noise);
 
-		//adding the factor between X_n and X_n+1 based on odom pomiar
+		//adding the factor between X_n and X_n+1 based on odom measurements
 		Pose3 pose_odom_change = this->prev_odom_msg_.between(this->odom_msg_);
   		auto odometryNoise = noiseModel::Diagonal::Sigmas(Vector6(0.1, 0.1, 0.1, 0.1, 0.1, 0.1));
 		this->graph_->emplace_shared<BetweenFactor<Pose3>>(X(iteration_), X(iteration_ + 1), pose_odom_change, odometryNoise);
 
 		RCLCPP_INFO(this->get_logger(), "before imu");
-		//adding the factor between X_n and X_n+1 based on imu pomiar 
+		//adding the factor between X_n and X_n+1 based on imu measurements 
 		auto preint_imu = dynamic_cast<const PreintegratedImuMeasurements&>(*preintegrated_);
 		ImuFactor imu_factor(X(iteration_), V(iteration_),
-							X(iteration_-1), V(iteration_-1),
+							X(iteration_ +1 ), V(iteration_+ 1),
 							B(iteration_), preint_imu);
 		graph_->add(imu_factor);
 
-		auto prop_state = preintegrated_->predict(this->prev_state_, this->prev_bias_);
+        imuBias::ConstantBias zero_bias(Vector3(0, 0, 0), Vector3(0, 0, 0));
+        graph_->add(BetweenFactor<imuBias::ConstantBias>(B(iteration_), B(iteration_ +1 ), zero_bias, bias_noise_model));
 
-		this->initial_values_.insert(V(iteration_+1), prop_state.v());
-      	this->initial_values_.insert(B(iteration_+1), this->prev_bias_);
+        RCLCPP_INFO(this->get_logger(), "added factor imu to graph");
+        
+        auto prop_state = preintegrated_->predict(this->prev_state_, this->prev_bias_);
 
-		//getting the results
-		auto result = LevenbergMarquardtOptimizer(*this->graph_, this->initial_values_).optimize();
-		auto covariance = Marginals(*graph_, result).optimize();
+        this->initial_values_.insert(V(iteration_+1), prop_state.v());
+        this->initial_values_.insert(B(iteration_+1), this->prev_bias_);
 
-		this->prev_bias_ = result.at<imuBias::ConstantBias>(B(iteration_ + 1));
-		this->prev_state_ = NavState(result.at<Pose3>(X(iteration_+1)), result.at<Vector3>(V(iteration_+1)));
+
+        RCLCPP_INFO(this->get_logger(), "before getting to results");
+
+        //getting the results
+        auto result = LevenbergMarquardtOptimizer(*this->graph_, this->initial_values_).optimize();
+        auto covariance = Marginals(*graph_, result).optimize();
+
+        this->prev_bias_ = result.at<imuBias::ConstantBias>(B(iteration_ + 1));
+        this->prev_state_ = NavState(result.at<Pose3>(X(iteration_+1)), result.at<Vector3>(V(iteration_+1)));
+
+        RCLCPP_INFO(this->get_logger(), "before resetIntegrationAndSetBias");
+
 
 		preintegrated_->resetIntegrationAndSetBias(this->prev_bias_);
 
 		auto pose_graph = result.at<Pose3>(X(iteration_ + 1));
 		
-		auto temp = geometry_msgs::msg::PoseWithCovariance();
-		temp.pose.position.x = pose_graph.x();
-		temp.pose.position.y = pose_graph.y();
-		temp.pose.position.z = pose_graph.z();
 
-		temp.pose.orientation.x = pose_graph.rotation().toQuaternion().x();
-		temp.pose.orientation.y = pose_graph.rotation().toQuaternion().y();
-		temp.pose.orientation.z = pose_graph.rotation().toQuaternion().z();
-		temp.pose.orientation.w = pose_graph.rotation().toQuaternion().w();
+        // Making message to send by topic /graph_pose
+		auto temp = geometry_msgs::msg::PoseWithCovarianceStamped();
+
+        // header
+        temp.header.stamp = this -> now();
+        temp.header.frame_id = "map";
+
+        // position
+		temp.pose.pose.position.x = pose_graph.x();
+		temp.pose.pose.position.y = pose_graph.y();
+		temp.pose.pose.position.z = pose_graph.z();
+
+        //orientation
+		temp.pose.pose.orientation.x = pose_graph.rotation().toQuaternion().x();
+		temp.pose.pose.orientation.y = pose_graph.rotation().toQuaternion().y();
+		temp.pose.pose.orientation.z = pose_graph.rotation().toQuaternion().z();
+		temp.pose.pose.orientation.w = pose_graph.rotation().toQuaternion().w();
+
+
+        // setting covariance
+        // auto imu_params = imuParams();
+        // for (int i = 0; i < 9; ++i) 
+        // {
+        //     temp.pose.covariance[i] = imu_params->accelerometerCovariance(i / 3, i % 3); // Setting position covariance from accelerometer
+        // }
+
+        // for (int i = 0; i < 9; ++i) 
+        // {
+        //     temp.pose.covariance[21 + i] = imu_params->gyroscopeCovariance(i / 3, i % 3); // Setting orientation covariance from gyroscope
+        // }
+
+        // // Przykład ustawienia niektórych wartości kowariancji
+        temp.pose.covariance[0] = 0.1;  // Kowariancja x-x
+        temp.pose.covariance[7] = 0.1;  // Kowariancja y-y
+        temp.pose.covariance[14] = 0.1; // Kowariancja z-z
+        temp.pose.covariance[21] = 0.1; // Kowariancja rot_x-rot_x
+        temp.pose.covariance[28] = 0.1; // Kowariancja rot_y-rot_y
+        temp.pose.covariance[35] = 0.1; // Kowariancja rot_z-rot_z
+
+        RCLCPP_INFO(this->get_logger(), "after adding position and location");
 
 
 
