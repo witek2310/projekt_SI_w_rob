@@ -2,3 +2,4 @@ build/
 install/
 log/
 .vscode
+src/gazebo_map_creator/

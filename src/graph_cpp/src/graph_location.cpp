@@ -155,13 +155,13 @@ private:
 	}
 	void imu_callback(sensor_msgs::msg::Imu::SharedPtr msg)
 	{	
-    RCLCPP_INFO(this->get_logger(), "Imucallback start");
+    // RCLCPP_INFO(this->get_logger(), "Imucallback start");
 
     try {
         double time = (double)msg->header.stamp.sec + ((double)msg->header.stamp.nanosec) * 0.000000001;
         if (this->prev_imu_time_ == 0.0) {
             this->prev_imu_time_ = time;
-            RCLCPP_INFO(this->get_logger(), "Initial IMU time set: %f", time);
+            // RCLCPP_INFO(this->get_logger(), "Initial IMU time set: %f", time);
             return; // Skip the first IMU message as we have no previous time to compare
         }
 
@@ -174,18 +174,18 @@ private:
         this->imu_msg_ = *msg;
         this->imu_recived_ = true;
 
-        RCLCPP_INFO(this->get_logger(), "Time: %f, Previous IMU time: %f, dt: %f", time, this->prev_imu_time_, dt);
+        // RCLCPP_INFO(this->get_logger(), "Time: %f, Previous IMU time: %f, dt: %f", time, this->prev_imu_time_, dt);
 
         Vector3 imu_acc = Vector3(msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z);
         Vector3 imu_ome = Vector3(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
 
-        RCLCPP_INFO(this->get_logger(), "IMU Acc: [%f, %f, %f], IMU Omega: [%f, %f, %f]", imu_acc.x(), imu_acc.y(), imu_acc.z(), imu_ome.x(), imu_ome.y(), imu_ome.z());
+        // RCLCPP_INFO(this->get_logger(), "IMU Acc: [%f, %f, %f], IMU Omega: [%f, %f, %f]", imu_acc.x(), imu_acc.y(), imu_acc.z(), imu_ome.x(), imu_ome.y(), imu_ome.z());
 
         this->preintegrated_->integrateMeasurement(imu_acc, imu_ome, dt);
 
         this->prev_imu_time_ = time;
 
-        RCLCPP_INFO(this->get_logger(), "Imucallback end");
+        // RCLCPP_INFO(this->get_logger(), "Imucallback end");
     } catch (const std::exception &e) {
         RCLCPP_ERROR(this->get_logger(), "Exception in IMU callback: %s", e.what());
     }
@@ -311,18 +311,18 @@ private:
 		// We use the sensor specs to build the noise model for the IMU factor.
 		double accel_noise_sigma = 0.017;
 		double gyro_noise_sigma = 0.000205689024915;
-		double accel_bias_rw_sigma = 0.0;
-		double gyro_bias_rw_sigma = 0.0;
+		double accel_bias_rw_sigma = 0.1;
+		double gyro_bias_rw_sigma = 0.0000075;
 		Matrix33 measured_acc_cov = I_3x3 * pow(accel_noise_sigma, 2);
 		Matrix33 measured_omega_cov = I_3x3 * pow(gyro_noise_sigma, 2);
 		Matrix33 integration_error_cov =
-			I_3x3 * 1e-8; // error committed in integrating position from velocities
+			I_3x3 * 1e-7; // error committed in integrating position from velocities
 		Matrix33 bias_acc_cov = I_3x3 * pow(accel_bias_rw_sigma, 2);
 		Matrix33 bias_omega_cov = I_3x3 * pow(gyro_bias_rw_sigma, 2);
 		Matrix66 bias_acc_omega_init =
 			I_6x6 * 1e-5; // error in the bias used for preintegration
 
-		auto p = PreintegratedCombinedMeasurements::Params::MakeSharedD(0.0);
+		auto p = PreintegratedCombinedMeasurements::Params::MakeSharedD(-9.81);  //gravity
 		// PreintegrationBase params:
 		p->accelerometerCovariance =
 			measured_acc_cov; // acc white noise in continuous
