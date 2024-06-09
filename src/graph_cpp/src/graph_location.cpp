@@ -134,6 +134,7 @@ private:
 
 	// variables for ros2 messages
 	bool odom_recived_, imu_recived_, laser_recived_;
+	std::array<double, 36> odom_cov;
 	sensor_msgs::msg::Imu imu_msg_;
 	sensor_msgs::msg::LaserScan laser_msg_;
 	Pose3 odom_msg_, prev_odom_msg_;
@@ -151,6 +152,8 @@ private:
 		Point3 temp_position(msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z);
 		Pose3 temp_pose(temp_rot, temp_position);
 
+		this->odom_cov = msg->pose.covariance;
+		
 		this->odom_msg_ = temp_pose;
 	}
 	void imu_callback(sensor_msgs::msg::Imu::SharedPtr msg)
@@ -218,7 +221,7 @@ private:
 
 		//adding the factor between X_n and X_n+1 based on odom measurements
 		Pose3 pose_odom_change = this->prev_odom_msg_.between(this->odom_msg_);
-  		auto odometryNoise = noiseModel::Diagonal::Sigmas(Vector6(0.1, 0.1, 0.1, 0.1, 0.1, 0.1));
+		auto odometryNoise = noiseModel::Diagonal::Sigmas(Vector6(this->odom_cov[0], this->odom_cov[7], this->odom_cov[14], this->odom_cov[21], this->odom_cov[28], this->odom_cov[35]));
 		this->graph_->emplace_shared<BetweenFactor<Pose3>>(X(iteration_), X(iteration_ + 1), pose_odom_change, odometryNoise);
 
 		RCLCPP_INFO(this->get_logger(), "before imu");
@@ -244,7 +247,18 @@ private:
 
         //getting the results
         auto result = LevenbergMarquardtOptimizer(*this->graph_, this->initial_values_).optimize();
-        auto covariance = Marginals(*graph_, result).optimize();
+        auto covariance = Marginals(*graph_, result);
+		auto one_cov = covariance.marginalCovariance(B(iteration_ + 1));
+
+
+		std::array<double, 36> one_cov_array;
+
+		int index = 0;
+		for (int i = 0; i < 6; ++i) {
+			for (int j = 0; j < 6; ++j) {
+				one_cov_array[index++] = one_cov(i, j);
+			}
+		}
 
         this->prev_bias_ = result.at<imuBias::ConstantBias>(B(iteration_ + 1));
         this->prev_state_ = NavState(result.at<Pose3>(X(iteration_+1)), result.at<Vector3>(V(iteration_+1)));
@@ -256,7 +270,7 @@ private:
 
 		auto pose_graph = result.at<Pose3>(X(iteration_ + 1));
 		
-
+		
         // Making message to send by topic /graph_pose
 		auto temp = geometry_msgs::msg::PoseWithCovarianceStamped();
 
@@ -267,13 +281,15 @@ private:
         // position
 		temp.pose.pose.position.x = pose_graph.x();
 		temp.pose.pose.position.y = pose_graph.y();
-		temp.pose.pose.position.z = pose_graph.z();
+		temp.pose.pose.position.z = 0.0;
 
         //orientation
 		temp.pose.pose.orientation.x = pose_graph.rotation().toQuaternion().x();
 		temp.pose.pose.orientation.y = pose_graph.rotation().toQuaternion().y();
 		temp.pose.pose.orientation.z = pose_graph.rotation().toQuaternion().z();
 		temp.pose.pose.orientation.w = pose_graph.rotation().toQuaternion().w();
+		
+		temp.pose.covariance = one_cov_array;
 
 
         // setting covariance
@@ -289,12 +305,12 @@ private:
         // }
 
         // // Przykład ustawienia niektórych wartości kowariancji
-        temp.pose.covariance[0] = 0.1;  // Kowariancja x-x
-        temp.pose.covariance[7] = 0.1;  // Kowariancja y-y
-        temp.pose.covariance[14] = 0.1; // Kowariancja z-z
-        temp.pose.covariance[21] = 0.1; // Kowariancja rot_x-rot_x
-        temp.pose.covariance[28] = 0.1; // Kowariancja rot_y-rot_y
-        temp.pose.covariance[35] = 0.1; // Kowariancja rot_z-rot_z
+        // temp.pose.covariance[0] = 0.1;  // Kowariancja x-x
+        // temp.pose.covariance[7] = 0.1;  // Kowariancja y-y
+        temp.pose.covariance[14] = 0.0; // Kowariancja z-z
+        temp.pose.covariance[21] = 0.0; // Kowariancja rot_x-rot_x
+        temp.pose.covariance[28] = 0.0; // Kowariancja rot_y-rot_y
+        // temp.pose.covariance[35] = 0.1; // Kowariancja rot_z-rot_z
 
         RCLCPP_INFO(this->get_logger(), "after adding position and location");
 
