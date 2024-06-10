@@ -43,26 +43,32 @@ Initialization:
 
 Initializes subscriptions to the odometry, IMU, laser scan, and AMCL pose topics.
 Sets up a publisher for the fused pose with covariance (/graph_pose).
-Initializes the GTSAM graph, prior values, and noise models.
-Sensor Callbacks:
+Initializes the GTSAM graph, prior values, and noise models.  
 
-Odometry Callback: Updates the current odometry pose and covariance.
-IMU Callback: Integrates IMU measurements to update the preintegrated IMU state.
-Laser Scan Callback: Stores the latest laser scan data.
-AMCL Callback: Incorporates AMCL pose estimates into the graph, adds factors between consecutive poses, and optimizes the graph.
-Graph Optimization:
+Sensor Callbacks:  
 
-Uses the Levenberg-Marquardt optimizer from GTSAM to optimize the pose graph.
-Extracts the resulting pose and covariance and publishes them on the /graph_pose topic.
-IMU Parameters
-The imuParams function sets up the noise models for the IMU measurements, including:
+- Odometry Callback: Updates the current odometry pose and covariance.
+- IMU Callback: Integrates IMU measurements to update the preintegrated IMU state.
+- Laser Scan Callback: Stores the latest laser scan data.
+- AMCL Callback: Incorporates AMCL pose estimates into the graph, synchronise all measurements from sensors, adds factors for sensor in the right place to graph between consecutive poses, and optimizes the graph.  
 
-Accelerometer noise
-Gyroscope noise
-Bias random walk noise for both accelerometer and gyroscope
-Integration error covariance
+Graph Optimization:  
+
+## TODO IMAGE OF GRAPH
+
+We use the Levenberg-Marquardt optimizer from GTSAM to optimize the pose graph.  
+
+Extracts the resulting pose and covariance and publishes them on the /graph_pose topic. Covariance is calculated in the graph itself, we extract it and save to our PoseWithCovarianceStamped message. Few covariances (f.e. in z-z axis) are set to zero, because we have localisation in 2D not in 3D. 
+
+```cpp
+auto result = LevenbergMarquardtOptimizer(*this->graph_, this->initial_values_).optimize();
+auto covariance = Marginals(*graph_, result);
+auto one_cov = covariance.marginalCovariance(B(iteration_ + 1));
+```
+
 
 
 ## TODO:
+- add noise to /odom covariance to better imitate true measurements
 - make robot visible in rviz
 - add rviz to launch file 
