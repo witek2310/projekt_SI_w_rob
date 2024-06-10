@@ -38,6 +38,13 @@ The node publishes the fused pose with covariance information to a topic for vis
 
 1. /graph_pose (geometry_msgs/msg/PoseWithCovarianceStamped): The estimated robot pose, including covariance, after sensor fusion using the graph-based SLAM approach.
 
+The graph looks like:
+
+![graph](graph.svg)
+
+Graph is updated every time the amcl collback is called. Why?\
+Beacouse this is the slowest publishing topic. The information from the rest of topics are store in member variables and updated every time the topic related callback is called.\
+
 #### Functionality
 Initialization:  
 
