@@ -33,7 +33,9 @@ The GraphLocation node subscribes to multiple topics to gather sensor data:
 2. /imu (sensor_msgs/msg/Imu): Inertial Measurement Unit data providing linear acceleration and angular velocity.
 3. /laser (sensor_msgs/msg/LaserScan): Laser scan data, used for localization. (not used directly)
 4. /amcl_pose (geometry_msgs/msg/PoseWithCovarianceStamped): Pose estimated by the AMCL (Adaptive Monte Carlo Localization) node.  
+
 The node publishes the fused pose with covariance information to a topic for visualisation in rviz2:
+
 1. /graph_pose (geometry_msgs/msg/PoseWithCovarianceStamped): The estimated robot pose, including covariance, after sensor fusion using the graph-based SLAM approach.
 
 #### Functionality
