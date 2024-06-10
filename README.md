@@ -72,7 +72,7 @@ auto covariance = Marginals(*graph_, result);
 auto one_cov = covariance.marginalCovariance(B(iteration_ + 1));
 ```  
 
-Unfortunately, ddom sensor is almost perfect in the simulation. Because of that (and the lack of added noice to it) covariance is very low. Consequently, inside visualisation in rviz2, covariance is not to be seen. 
+Unfortunately, odom sensor is almost perfect in the simulation. Because of that (and the lack of added noice to it) covariance is very low. Consequently, inside visualisation in rviz2, covariance is not to be seen. 
 
 ## TODO:
 - add noise to /odom covariance to better imitate true measurements
