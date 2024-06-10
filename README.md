@@ -20,7 +20,7 @@ Make sure that Shared directory was the workspace directory.
 
 ## project description
 
-Project consist of two main ros2 nodes. First is turtle_location, which is extended external package. It was our first attempt to implement graph in python. 
+Project consist of one main ros2 package. Inside are two launch files, which run two nodes. First node boot gazebo with custom maze map and turtlebot Burger. The second one subscribes to the topics from sensors in the first, makes a graph, optimises it and publish estimated pose with covariance. We use also rviz2 for visualisation and the last node is teleop, to control turtlebot in gazebo. Main program has been written in ```graph_location.cpp``` inside ```amcl_callback```.  
 
 ### ```graph_location.cpp```
 
